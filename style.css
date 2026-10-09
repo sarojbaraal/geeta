@@ -92,4 +92,27 @@ body {
     overflow: hidden; 
     line-height: 1.0;
 }
-#text-layer { z-index: 2; opacity: 0;
+#text-layer { z-index: 2; opacity: 0; }
+#highlight-layer { z-index: 3; pointer-events: none; }
+
+#text-layer > span {
+    color: transparent; position: absolute; white-space: pre; cursor: text;
+    transform-origin: 0% 0%;
+}
+#text-layer > span::selection { background: rgba(59, 130, 246, 0.4); }
+
+.highlight-box {
+    position: absolute; mix-blend-mode: multiply; pointer-events: auto; cursor: pointer;
+    border-radius: 2px; opacity: 0.4;
+}
+.highlight-box.yellow { background: yellow; }
+.highlight-box.green { background: lime; }
+.highlight-box.blue { background: cyan; }
+
+#highlight-toolbar {
+    position: fixed; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    display: flex; z-index: 50; padding: 5px;
+}
+#highlight-toolbar.hidden { display: none; }
+.hl-btn { padding: 8px 12px; border: none; background: none; cursor: pointer; font-size: 14px; border-radius: 4px; }
+.hl-btn:active { background: #e5e7eb; }
