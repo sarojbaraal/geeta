@@ -36,7 +36,7 @@ async function init() {
 function renderPage(num) {
     pageRendering = true;
     pageIndicator.textContent = `Page ${num} / ${pdfDoc.numPages}`;
-    pageWrapper.classList.add('turning'); // Preview transition
+    pageWrapper.classList.add('turning');
 
     pdfDoc.getPage(num).then(async (page) => {
         const viewport = page.getViewport({ scale: 1 });
@@ -44,13 +44,11 @@ function renderPage(num) {
         scale = containerWidth / viewport.width;
         const scaledViewport = page.getViewport({ scale: scale });
 
-        // Set wrapper and canvas dimensions
         pageWrapper.style.width = scaledViewport.width + 'px';
         pageWrapper.style.height = scaledViewport.height + 'px';
         canvas.height = scaledViewport.height;
         canvas.width = scaledViewport.width;
 
-        // Set text/highlight layer dimensions to match full page
         textLayerDiv.style.width = scaledViewport.width + 'px';
         textLayerDiv.style.height = scaledViewport.height + 'px';
         highlightLayerDiv.style.width = scaledViewport.width + 'px';
@@ -59,7 +57,6 @@ function renderPage(num) {
         const renderContext = { canvasContext: ctx, viewport: scaledViewport };
         const renderTask = page.render(renderContext);
 
-        // Render Text Layer
         const textContent = await page.getTextContent();
         textLayerDiv.innerHTML = ''; 
         await pdfjsLib.renderTextLayer({
@@ -92,21 +89,19 @@ function queueRenderPage(num) {
 
 // --- EVENT LISTENERS ---
 function setupEventListeners() {
-    // Page Jump
     document.getElementById('page-jump').onchange = (e) => {
         const val = parseInt(e.target.value);
         if (val >= 1 && val <= pdfDoc.numPages) { 
             pageNum = val; 
             queueRenderPage(pageNum); 
-            viewerContainer.scrollTop = 0; // Reset scroll on jump
+            viewerContainer.scrollTop = 0;
         }
     };
 
-    // Sidebar
     document.getElementById('menu-btn').onclick = () => document.getElementById('sidebar').classList.add('open');
     document.getElementById('close-sidebar').onclick = () => document.getElementById('sidebar').classList.remove('open');
 
-    // Swipe Gestures for Page Turning
+    // Swipe Gestures
     let touchStartX = 0;
     let touchStartY = 0;
 
@@ -121,7 +116,6 @@ function setupEventListeners() {
         const diffX = touchStartX - touchEndX;
         const diffY = touchStartY - touchEndY;
 
-        // If horizontal swipe is dominant and long enough
         if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
             if (diffX > 0 && pageNum < pdfDoc.numPages) {
                 pageNum++;
@@ -134,20 +128,18 @@ function setupEventListeners() {
             }
         }
         
-        // Handle text selection popup
         setTimeout(handleSelection, 100);
     });
 
-    // Autoscroll Feature
+    // Autoscroll
     autoscrollBtn.onclick = () => {
         if (autoscrollInterval) {
             stopAutoscroll();
         } else {
             autoscrollBtn.classList.add('active');
             autoscrollInterval = setInterval(() => {
-                viewerContainer.scrollTop += 2; // Scroll speed
+                viewerContainer.scrollTop += 2;
                 
-                // Check if reached bottom of page
                 if (viewerContainer.scrollTop + viewerContainer.clientHeight >= viewerContainer.scrollHeight - 5) {
                     if (pageNum < pdfDoc.numPages) {
                         pageNum++;
@@ -161,7 +153,7 @@ function setupEventListeners() {
         }
     };
 
-    // Highlighting Toolbar Buttons
+    // Highlight Toolbar
     document.querySelectorAll('.hl-btn[data-color]').forEach(btn => {
         btn.onclick = () => saveHighlight(btn.dataset.color);
     });
@@ -189,7 +181,6 @@ function handleSelection() {
         const range = selection.getRangeAt(0);
         const rect = range.getBoundingClientRect();
         
-        // Position toolbar above selection
         toolbar.style.top = (rect.top - 50) + 'px';
         toolbar.style.left = Math.max(10, rect.left) + 'px';
         toolbar.classList.remove('hidden');
@@ -207,7 +198,6 @@ async function saveHighlight(color, comment = '') {
     const rects = range.getClientRects();
     const text = currentSelection.toString().trim();
     
-    // Calculate coordinates relative to the page wrapper (crucial for vertical scroll)
     const wrapperRect = pageWrapper.getBoundingClientRect();
     const boxes = [];
     
@@ -298,3 +288,12 @@ async function loadChapters() {
 
 // Start
 init();
+
+// --- REGISTER SERVICE WORKER (Required for PWA Install) ---
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then((reg) => console.log('Service Worker registered:', reg.scope))
+            .catch((err) => console.log('Service Worker registration failed:', err));
+    });
+}
