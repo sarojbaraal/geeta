@@ -46,7 +46,7 @@ function renderPage(num) {
     pageRendering = true;
     pageIndicator.textContent = `Page ${num} / ${pdfDoc.numPages}`;
     pageWrapper.classList.add('turning');
-    pageWrapper.style.transform = ''; // Reset any pinch transform
+    pageWrapper.style.transform = ''; 
 
     pdfDoc.getPage(num).then(async (page) => {
         const viewport = page.getViewport({ scale: 1 });
@@ -62,6 +62,7 @@ function renderPage(num) {
         canvas.style.width = Math.floor(scaledViewport.width) + 'px';
         canvas.style.height = Math.floor(scaledViewport.height) + 'px';
         
+        // Because of content-box, this sets the inner size, and padding adds to the outside
         pageWrapper.style.width = Math.floor(scaledViewport.width) + 'px';
         pageWrapper.style.height = Math.floor(scaledViewport.height) + 'px';
 
@@ -142,19 +143,17 @@ function setupEventListeners() {
 
     viewerContainer.addEventListener('touchmove', (e) => {
         if (e.touches.length === 2 && initialPinchDistance > 0) {
-            e.preventDefault(); // Prevent browser native zoom
+            e.preventDefault(); 
             const currentDistance = getDistance(e.touches[0], e.touches[1]);
             const ratio = currentDistance / initialPinchDistance;
             lastPinchZoom = Math.max(1.0, Math.min(3.0, initialZoom * ratio));
             
-            // Visual image-like zoom
             pageWrapper.style.transform = `scale(${lastPinchZoom / zoomMultiplier})`;
             pageWrapper.style.transformOrigin = '0 0'; 
         }
     }, { passive: false });
 
     viewerContainer.addEventListener('touchend', (e) => {
-        // End Pinch
         if (e.touches.length < 2 && initialPinchDistance > 0) {
             pageWrapper.style.transform = ''; 
             if (Math.abs(lastPinchZoom - zoomMultiplier) > 0.05) {
@@ -164,7 +163,7 @@ function setupEventListeners() {
             initialPinchDistance = 0;
         }
 
-        // Tap to Turn Pages (Left 30% / Right 30%)
+        // Tap to Turn Pages
         const duration = Date.now() - touchStartTime;
         const touchEndPos = {x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY};
         const distX = Math.abs(touchEndPos.x - touchStartPos.x);
@@ -247,14 +246,20 @@ async function saveHighlight(color, comment = '') {
     const range = currentSelection.getRangeAt(0);
     const rects = range.getClientRects();
     const text = currentSelection.toString().trim();
-    const wrapperRect = pageWrapper.getBoundingClientRect();
+    
+    // FIX: Use canvas bounding rect instead of wrapper to perfectly align with the 3mm offset
+    const canvasRect = canvas.getBoundingClientRect();
     const boxes = [];
+    
     for (let i = 0; i < rects.length; i++) {
         boxes.push({
-            top: rects[i].top - wrapperRect.top, left: rects[i].left - wrapperRect.left,
-            width: rects[i].width, height: rects[i].height
+            top: rects[i].top - canvasRect.top,
+            left: rects[i].left - canvasRect.left,
+            width: rects[i].width,
+            height: rects[i].height
         });
     }
+    
     const highlightData = { id: Date.now(), page: pageNum, text, comment, color, boxes };
     const key = `highlights_page_${pageNum}`;
     let pageHighlights = await localForage.getItem(key) || [];
@@ -300,13 +305,11 @@ async function loadChapters() {
     const rightList = document.getElementById('edge-chapter-list');
     
     chapters.forEach(ch => {
-        // Left Sidebar
         const li1 = document.createElement('li');
         li1.textContent = ch.title;
         li1.onclick = () => jumpToChapter(ch.page);
         leftList.appendChild(li1);
         
-        // Right Edge Panel
         const li2 = document.createElement('li');
         li2.textContent = ch.title;
         li2.onclick = () => {
