@@ -7,10 +7,17 @@ let pageRendering = false;
 let pageNumPending = null;
 let currentSelection = null;
 let autoscrollInterval = null;
-
-// Zoom State (1.0 = fit width, 1.5 = 150%, 2.0 = 200%)
 let zoomMultiplier = 1.0; 
 let baseScale = 1.0;
+
+// Pinch Zoom State
+let initialPinchDistance = 0;
+let initialZoom = 1.0;
+let lastPinchZoom = 1.0;
+
+// Tap State
+let touchStartTime = 0;
+let touchStartPos = {x: 0, y: 0};
 
 // DOM Elements
 const canvas = document.getElementById('pdf-canvas');
@@ -22,6 +29,8 @@ const viewerContainer = document.getElementById('viewer-container');
 const pageIndicator = document.getElementById('page-indicator');
 const toolbar = document.getElementById('highlight-toolbar');
 const autoscrollBtn = document.getElementById('autoscroll-btn');
+const rightTrigger = document.getElementById('right-edge-trigger');
+const edgePanel = document.getElementById('edge-chapter-panel');
 
 async function init() {
     const loadingTask = pdfjsLib.getDocument('book.pdf');
@@ -37,45 +46,29 @@ function renderPage(num) {
     pageRendering = true;
     pageIndicator.textContent = `Page ${num} / ${pdfDoc.numPages}`;
     pageWrapper.classList.add('turning');
+    pageWrapper.style.transform = ''; // Reset any pinch transform
 
     pdfDoc.getPage(num).then(async (page) => {
         const viewport = page.getViewport({ scale: 1 });
-        
-        // Calculate base scale to fit screen width
         const containerWidth = viewerContainer.clientWidth - 20; 
         baseScale = containerWidth / viewport.width;
-        
-        // Final scale includes zoom multiplier
         const finalScale = baseScale * zoomMultiplier;
         const scaledViewport = page.getViewport({ scale: finalScale });
 
-        // --- HIGH DPI (RETINA) FIX ---
-        // Get device pixel ratio (usually 2 or 3 on mobile phones)
-        const outputScale = Math.min(window.devicePixelRatio || 1, 2); // Cap at 2 to save memory
+        const outputScale = Math.min(window.devicePixelRatio || 1, 2);
 
-        // Set physical canvas size (High Resolution)
         canvas.width = Math.floor(scaledViewport.width * outputScale);
         canvas.height = Math.floor(scaledViewport.height * outputScale);
-
-        // Set CSS canvas size (Logical Resolution - matches screen)
         canvas.style.width = Math.floor(scaledViewport.width) + 'px';
         canvas.style.height = Math.floor(scaledViewport.height) + 'px';
         
-        // Set wrapper size to match CSS size
         pageWrapper.style.width = Math.floor(scaledViewport.width) + 'px';
         pageWrapper.style.height = Math.floor(scaledViewport.height) + 'px';
 
-        // Scale the drawing context
         const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
-        const renderContext = {
-            canvasContext: ctx,
-            viewport: scaledViewport,
-            transform: transform
-        };
-        
+        const renderContext = { canvasContext: ctx, viewport: scaledViewport, transform: transform };
         const renderTask = page.render(renderContext);
 
-        // Text Layer must match the CSS size, NOT the physical pixel size
         textLayerDiv.style.width = Math.floor(scaledViewport.width) + 'px';
         textLayerDiv.style.height = Math.floor(scaledViewport.height) + 'px';
         highlightLayerDiv.style.width = Math.floor(scaledViewport.width) + 'px';
@@ -84,14 +77,10 @@ function renderPage(num) {
         const textContent = await page.getTextContent();
         textLayerDiv.innerHTML = ''; 
         await pdfjsLib.renderTextLayer({
-            textContent: textContent,
-            container: textLayerDiv,
-            viewport: scaledViewport,
-            textDivs: []
+            textContent: textContent, container: textLayerDiv, viewport: scaledViewport, textDivs: []
         }).promise;
 
         await renderTask.promise;
-        
         loadHighlightsForPage(num);
         pageWrapper.classList.remove('turning');
 
@@ -104,11 +93,8 @@ function renderPage(num) {
 }
 
 function queueRenderPage(num) {
-    if (pageRendering) {
-        pageNumPending = num;
-    } else {
-        renderPage(num);
-    }
+    if (pageRendering) pageNumPending = num;
+    else renderPage(num);
 }
 
 function setupEventListeners() {
@@ -116,60 +102,83 @@ function setupEventListeners() {
     document.getElementById('page-jump').onchange = (e) => {
         const val = parseInt(e.target.value);
         if (val >= 1 && val <= pdfDoc.numPages) { 
-            pageNum = val; 
-            queueRenderPage(pageNum); 
-            viewerContainer.scrollTop = 0;
-            viewerContainer.scrollLeft = 0;
+            pageNum = val; queueRenderPage(pageNum); 
+            viewerContainer.scrollTop = 0; viewerContainer.scrollLeft = 0;
         }
     };
 
-    // Zoom Controls
+    // Zoom Buttons
     document.getElementById('zoom-in').onclick = () => {
-        if (zoomMultiplier < 3.0) { // Max 300% zoom
-            zoomMultiplier += 0.5;
-            queueRenderPage(pageNum);
-            viewerContainer.scrollTop = 0;
-            viewerContainer.scrollLeft = 0;
-        }
+        if (zoomMultiplier < 3.0) { zoomMultiplier += 0.5; queueRenderPage(pageNum); viewerContainer.scrollTop = 0; viewerContainer.scrollLeft = 0; }
     };
     document.getElementById('zoom-out').onclick = () => {
-        if (zoomMultiplier > 1.0) { // Min 100% (fit width)
-            zoomMultiplier -= 0.5;
-            queueRenderPage(pageNum);
-            viewerContainer.scrollTop = 0;
-            viewerContainer.scrollLeft = 0;
-        }
+        if (zoomMultiplier > 1.0) { zoomMultiplier -= 0.5; queueRenderPage(pageNum); viewerContainer.scrollTop = 0; viewerContainer.scrollLeft = 0; }
     };
 
-    // Sidebar
+    // Sidebars
     document.getElementById('menu-btn').onclick = () => document.getElementById('sidebar').classList.add('open');
     document.getElementById('close-sidebar').onclick = () => document.getElementById('sidebar').classList.remove('open');
+    
+    // Right Edge Panel
+    rightTrigger.addEventListener('touchstart', () => edgePanel.classList.add('open'));
+    document.getElementById('close-edge-panel').onclick = () => edgePanel.classList.remove('open');
+    document.addEventListener('touchstart', (e) => {
+        if (!edgePanel.contains(e.target) && !rightTrigger.contains(e.target)) {
+            edgePanel.classList.remove('open');
+        }
+    });
 
-    // Swipe Gestures
-    let touchStartX = 0;
-    let touchStartY = 0;
-
+    // Touch Events (Tap, Swipe, Pinch)
     viewerContainer.addEventListener('touchstart', (e) => {
-        touchStartX = e.touches[0].clientX;
-        touchStartY = e.touches[0].clientY;
-    }, { passive: true });
+        if (e.touches.length === 1) {
+            touchStartTime = Date.now();
+            touchStartPos = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+        }
+        if (e.touches.length === 2) {
+            initialPinchDistance = getDistance(e.touches[0], e.touches[1]);
+            initialZoom = zoomMultiplier;
+        }
+    }, { passive: false });
+
+    viewerContainer.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2 && initialPinchDistance > 0) {
+            e.preventDefault(); // Prevent browser native zoom
+            const currentDistance = getDistance(e.touches[0], e.touches[1]);
+            const ratio = currentDistance / initialPinchDistance;
+            lastPinchZoom = Math.max(1.0, Math.min(3.0, initialZoom * ratio));
+            
+            // Visual image-like zoom
+            pageWrapper.style.transform = `scale(${lastPinchZoom / zoomMultiplier})`;
+            pageWrapper.style.transformOrigin = '0 0'; 
+        }
+    }, { passive: false });
 
     viewerContainer.addEventListener('touchend', (e) => {
-        const touchEndX = e.changedTouches[0].clientX;
-        const touchEndY = e.changedTouches[0].clientY;
-        const diffX = touchStartX - touchEndX;
-        const diffY = touchStartY - touchEndY;
+        // End Pinch
+        if (e.touches.length < 2 && initialPinchDistance > 0) {
+            pageWrapper.style.transform = ''; 
+            if (Math.abs(lastPinchZoom - zoomMultiplier) > 0.05) {
+                zoomMultiplier = lastPinchZoom;
+                queueRenderPage(pageNum);
+            }
+            initialPinchDistance = 0;
+        }
 
-        // Only swipe pages if zoomed out (fit to width)
-        if (zoomMultiplier === 1.0 && Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
-            if (diffX > 0 && pageNum < pdfDoc.numPages) {
-                pageNum++;
-                queueRenderPage(pageNum);
-                viewerContainer.scrollTop = 0;
-            } else if (diffX < 0 && pageNum > 1) {
-                pageNum--;
-                queueRenderPage(pageNum);
-                viewerContainer.scrollTop = 0;
+        // Tap to Turn Pages (Left 30% / Right 30%)
+        const duration = Date.now() - touchStartTime;
+        const touchEndPos = {x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY};
+        const distX = Math.abs(touchEndPos.x - touchStartPos.x);
+        const distY = Math.abs(touchEndPos.y - touchStartPos.y);
+        
+        if (duration < 300 && distX < 15 && distY < 15) {
+            const rect = viewerContainer.getBoundingClientRect();
+            const x = touchStartPos.x - rect.left;
+            const width = rect.width;
+            
+            if (x < width * 0.3 && pageNum > 1) {
+                pageNum--; queueRenderPage(pageNum); viewerContainer.scrollTop = 0;
+            } else if (x > width * 0.7 && pageNum < pdfDoc.numPages) {
+                pageNum++; queueRenderPage(pageNum); viewerContainer.scrollTop = 0;
             }
         }
         
@@ -184,15 +193,11 @@ function setupEventListeners() {
             autoscrollBtn.classList.add('active');
             autoscrollInterval = setInterval(() => {
                 viewerContainer.scrollTop += 2;
-                
                 if (viewerContainer.scrollTop + viewerContainer.clientHeight >= viewerContainer.scrollHeight - 5) {
                     if (pageNum < pdfDoc.numPages) {
-                        pageNum++;
-                        queueRenderPage(pageNum);
+                        pageNum++; queueRenderPage(pageNum);
                         setTimeout(() => { viewerContainer.scrollTop = 0; }, 300);
-                    } else {
-                        stopAutoscroll();
-                    }
+                    } else { stopAutoscroll(); }
                 }
             }, 30);
         }
@@ -218,6 +223,10 @@ function stopAutoscroll() {
     autoscrollBtn.classList.remove('active');
 }
 
+function getDistance(t1, t2) {
+    return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+}
+
 // --- HIGHLIGHTING LOGIC ---
 function handleSelection() {
     const selection = window.getSelection();
@@ -225,61 +234,40 @@ function handleSelection() {
         currentSelection = selection;
         const range = selection.getRangeAt(0);
         const rect = range.getBoundingClientRect();
-        
         toolbar.style.top = (rect.top - 50) + 'px';
         toolbar.style.left = Math.max(10, rect.left) + 'px';
         toolbar.classList.remove('hidden');
     } else {
-        if (!toolbar.matches(':hover')) {
-            toolbar.classList.add('hidden');
-        }
+        if (!toolbar.matches(':hover')) toolbar.classList.add('hidden');
     }
 }
 
 async function saveHighlight(color, comment = '') {
     if (!currentSelection) return;
-    
     const range = currentSelection.getRangeAt(0);
     const rects = range.getClientRects();
     const text = currentSelection.toString().trim();
-    
     const wrapperRect = pageWrapper.getBoundingClientRect();
     const boxes = [];
-    
     for (let i = 0; i < rects.length; i++) {
         boxes.push({
-            top: rects[i].top - wrapperRect.top,
-            left: rects[i].left - wrapperRect.left,
-            width: rects[i].width,
-            height: rects[i].height
+            top: rects[i].top - wrapperRect.top, left: rects[i].left - wrapperRect.left,
+            width: rects[i].width, height: rects[i].height
         });
     }
-
-    const highlightData = {
-        id: Date.now(),
-        page: pageNum,
-        text: text,
-        comment: comment,
-        color: color,
-        boxes: boxes
-    };
-
+    const highlightData = { id: Date.now(), page: pageNum, text, comment, color, boxes };
     const key = `highlights_page_${pageNum}`;
     let pageHighlights = await localForage.getItem(key) || [];
     pageHighlights.push(highlightData);
     await localForage.setItem(key, pageHighlights);
-
     drawHighlight(highlightData);
-    
     window.getSelection().removeAllRanges();
     toolbar.classList.add('hidden');
 }
 
 async function loadHighlightsForPage(page) {
     highlightLayerDiv.innerHTML = ''; 
-    const key = `highlights_page_${page}`;
-    const pageHighlights = await localForage.getItem(key) || [];
-    
+    const pageHighlights = await localForage.getItem(`highlights_page_${page}`) || [];
     pageHighlights.forEach(hl => drawHighlight(hl));
 }
 
@@ -287,49 +275,54 @@ function drawHighlight(hlData) {
     hlData.boxes.forEach(box => {
         const div = document.createElement('div');
         div.className = `highlight-box ${hlData.color}`;
-        div.style.top = box.top + 'px';
-        div.style.left = box.left + 'px';
-        div.style.width = box.width + 'px';
-        div.style.height = box.height + 'px';
-        
+        div.style.top = box.top + 'px'; div.style.left = box.left + 'px';
+        div.style.width = box.width + 'px'; div.style.height = box.height + 'px';
         if (hlData.comment) div.title = hlData.comment; 
-        
         div.onclick = async () => {
             if (confirm(`Delete highlight?\nText: "${hlData.text}"\nNote: ${hlData.comment || 'None'}`)) {
-                await deleteHighlight(hlData.id);
+                const key = `highlights_page_${pageNum}`;
+                let p = await localForage.getItem(key) || [];
+                p = p.filter(h => h.id !== hlData.id);
+                await localForage.setItem(key, p);
                 div.remove();
             }
         };
-        
         highlightLayerDiv.appendChild(div);
     });
-}
-
-async function deleteHighlight(id) {
-    const key = `highlights_page_${pageNum}`;
-    let pageHighlights = await localForage.getItem(key) || [];
-    pageHighlights = pageHighlights.filter(hl => hl.id !== id);
-    await localForage.setItem(key, pageHighlights);
 }
 
 // --- CHAPTERS ---
 async function loadChapters() {
     const response = await fetch('chapters.json');
     const chapters = await response.json();
-    const list = document.getElementById('chapter-list');
+    
+    const leftList = document.getElementById('chapter-list');
+    const rightList = document.getElementById('edge-chapter-list');
     
     chapters.forEach(ch => {
-        const li = document.createElement('li');
-        li.textContent = ch.title;
-        li.onclick = () => {
-            pageNum = ch.page;
-            queueRenderPage(pageNum);
-            viewerContainer.scrollTop = 0;
-            viewerContainer.scrollLeft = 0;
-            document.getElementById('sidebar').classList.remove('open');
+        // Left Sidebar
+        const li1 = document.createElement('li');
+        li1.textContent = ch.title;
+        li1.onclick = () => jumpToChapter(ch.page);
+        leftList.appendChild(li1);
+        
+        // Right Edge Panel
+        const li2 = document.createElement('li');
+        li2.textContent = ch.title;
+        li2.onclick = () => {
+            jumpToChapter(ch.page);
+            edgePanel.classList.remove('open');
         };
-        list.appendChild(li);
+        rightList.appendChild(li2);
     });
+}
+
+function jumpToChapter(page) {
+    pageNum = page;
+    queueRenderPage(pageNum);
+    viewerContainer.scrollTop = 0;
+    viewerContainer.scrollLeft = 0;
+    document.getElementById('sidebar').classList.remove('open');
 }
 
 init();
