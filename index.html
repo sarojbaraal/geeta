@@ -5,10 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Interactive PDF Reader</title>
     
-    <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
-    
-    <!-- Mobile App Icons -->
     <link rel="icon" href="icon.png" type="image/png">
     <link rel="apple-touch-icon" href="icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -18,13 +15,11 @@
     
     <link rel="stylesheet" href="style.css">
     
-    <!-- PDF.js and localForage via CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
 </head>
 <body>
 
-    <!-- Sidebar for Chapters -->
     <div id="sidebar" class="sidebar">
         <div class="sidebar-header">
             <h2>Chapters</h2>
@@ -33,17 +28,16 @@
         <ul id="chapter-list"></ul>
     </div>
 
-    <!-- Main Viewer Area -->
     <div id="main-container">
-        <!-- Top Bar -->
         <div id="top-bar">
             <button id="menu-btn" class="icon-btn">&#9776;</button>
             <span id="page-indicator">Page 1</span>
+            <button id="zoom-out" class="icon-btn zoom-btn">-</button>
+            <button id="zoom-in" class="icon-btn zoom-btn">+</button>
             <button id="autoscroll-btn" class="icon-btn" title="Autoscroll">⬇️</button>
             <input type="number" id="page-jump" min="1" placeholder="#">
         </div>
 
-        <!-- PDF Canvas and Text Layer -->
         <div id="viewer-container">
             <div id="page-wrapper">
                 <canvas id="pdf-canvas"></canvas>
@@ -53,7 +47,6 @@
         </div>
     </div>
 
-    <!-- Floating Highlight Toolbar -->
     <div id="highlight-toolbar" class="hidden">
         <button class="hl-btn" data-color="yellow">Yellow</button>
         <button class="hl-btn" data-color="green">Green</button>
