@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Interactive PDF Reader</title>
+    
+    <!-- Mobile App Icons -->
+    <link rel="icon" href="icon.png" type="image/png">
+    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#2563eb">
+    
     <link rel="stylesheet" href="style.css">
     
     <!-- PDF.js and localForage via CDN -->
@@ -27,20 +35,17 @@
         <div id="top-bar">
             <button id="menu-btn" class="icon-btn">&#9776;</button>
             <span id="page-indicator">Page 1</span>
-            <input type="number" id="page-jump" min="1" placeholder="Go to...">
+            <button id="autoscroll-btn" class="icon-btn" title="Autoscroll">⬇️</button>
+            <input type="number" id="page-jump" min="1" placeholder="#">
         </div>
 
         <!-- PDF Canvas and Text Layer -->
         <div id="viewer-container">
-            <canvas id="pdf-canvas"></canvas>
-            <div id="text-layer"></div>
-            <div id="highlight-layer"></div>
-        </div>
-
-        <!-- Bottom Navigation -->
-        <div id="bottom-bar">
-            <button id="prev-page" class="nav-btn">Prev</button>
-            <button id="next-page" class="nav-btn">Next</button>
+            <div id="page-wrapper">
+                <canvas id="pdf-canvas"></canvas>
+                <div id="text-layer"></div>
+                <div id="highlight-layer"></div>
+            </div>
         </div>
     </div>
 
@@ -49,7 +54,7 @@
         <button class="hl-btn" data-color="yellow">Yellow</button>
         <button class="hl-btn" data-color="green">Green</button>
         <button class="hl-btn" data-color="blue">Blue</button>
-        <button class="hl-btn" id="add-comment-btn">Comment</button>
+        <button class="hl-btn" id="add-comment-btn">Note</button>
         <button class="hl-btn" id="cancel-hl-btn">X</button>
     </div>
 
