@@ -57,25 +57,27 @@ function renderPage(num) {
 
         const outputScale = Math.min(window.devicePixelRatio || 1, 2);
 
-        // Set physical and CSS canvas size
+        // 1. Set physical and CSS canvas size
         canvas.width = Math.floor(scaledViewport.width * outputScale);
         canvas.height = Math.floor(scaledViewport.height * outputScale);
         canvas.style.width = Math.floor(scaledViewport.width) + 'px';
         canvas.style.height = Math.floor(scaledViewport.height) + 'px';
         
-        // REMOVED: pageWrapper.style.width and height. 
-        // The CSS 'display: inline-block' now automatically shrink-wraps the canvas + 3mm padding perfectly.
+        // 2. DO NOT set pageWrapper width/height. 
+        // The CSS 'display: inline-block' will automatically shrink-wrap the canvas + its 3mm margin perfectly.
 
+        // 3. Render Canvas
         const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
         const renderContext = { canvasContext: ctx, viewport: scaledViewport, transform: transform };
         const renderTask = page.render(renderContext);
 
-        // Set text/highlight layer sizes to match the canvas exactly
+        // 4. Set text/highlight layer sizes to match the canvas exactly
         textLayerDiv.style.width = Math.floor(scaledViewport.width) + 'px';
         textLayerDiv.style.height = Math.floor(scaledViewport.height) + 'px';
         highlightLayerDiv.style.width = Math.floor(scaledViewport.width) + 'px';
         highlightLayerDiv.style.height = Math.floor(scaledViewport.height) + 'px';
 
+        // 5. Render Text Layer
         const textContent = await page.getTextContent();
         textLayerDiv.innerHTML = ''; 
         await pdfjsLib.renderTextLayer({
