@@ -60,7 +60,7 @@ body {
 .zoom-btn:active { background: #d1d5db; }
 #autoscroll-btn.active { background: #e5e7eb; border-radius: 50%; }
 
-/* Viewer (Fixed horizontal scroll bug) */
+/* Viewer */
 #viewer-container {
     flex: 1; 
     overflow: auto; 
@@ -69,23 +69,27 @@ body {
     padding: 20px 0;
 }
 
-/* Page Wrapper (3mm white border & centering fix) */
+/* Page Wrapper (FIXED BORDER) */
 #page-wrapper {
-    margin: 0 auto; /* Centers when small, allows scroll when zoomed */
+    margin: 0 auto; 
     position: relative;
     box-shadow: 0 0 15px rgba(0,0,0,0.4);
     transition: opacity 0.2s ease;
-    padding: 3mm; /* 3mm white border around the page */
+    padding: 3mm; /* The 3mm white border */
     background: white;
+    box-sizing: content-box; /* CRITICAL FIX: Forces padding to be added OUTSIDE the JS-calculated width/height */
 }
 #page-wrapper.turning { opacity: 0.6; }
 
 #pdf-canvas { display: block; }
 
-/* Text & Highlight Layers */
+/* Text & Highlight Layers (FIXED ALIGNMENT) */
 #text-layer, #highlight-layer {
-    position: absolute; top: 0; left: 0;
-    overflow: hidden; line-height: 1.0;
+    position: absolute; 
+    top: 3mm; /* CRITICAL FIX: Offsets layers to sit exactly on top of the canvas, inside the padding */
+    left: 3mm; 
+    overflow: hidden; 
+    line-height: 1.0;
 }
 #text-layer { z-index: 2; opacity: 0; }
 #highlight-layer { z-index: 3; pointer-events: none; }
