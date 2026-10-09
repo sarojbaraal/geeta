@@ -60,35 +60,38 @@ body {
 .zoom-btn:active { background: #d1d5db; }
 #autoscroll-btn.active { background: #e5e7eb; border-radius: 50%; }
 
-/* Viewer */
+/* Viewer (Flexbox for perfect centering and scrolling) */
 #viewer-container {
     flex: 1; 
     overflow: auto; 
     position: relative; 
     background: #525659;
-    padding: 20px 0;
-    text-align: center; /* Centers the inline-block wrapper */
+    display: flex;
+    padding: 20px 0; /* Top/bottom breathing room */
 }
 
-/* Page Wrapper (THE ULTIMATE FIX FOR BORDERS) */
+/* Page Wrapper (Shrink-wraps the canvas + margins) */
 #page-wrapper {
-    display: inline-block; /* Shrink-wraps the canvas + padding perfectly */
+    margin: 0 auto; /* Centers horizontally when not zoomed */
     position: relative;
+    background: white;
     box-shadow: 0 0 15px rgba(0,0,0,0.4);
     transition: opacity 0.2s ease;
-    padding: 3mm; /* The 3mm white border */
-    background: white;
-    text-align: left; /* Reset text alignment for content inside */
+    display: inline-block; /* Crucial: makes it wrap exactly around the canvas + its margins */
 }
 #page-wrapper.turning { opacity: 0.6; }
 
-#pdf-canvas { display: block; }
+/* Canvas (THE BULLETPROOF BORDER FIX) */
+#pdf-canvas { 
+    display: block; 
+    margin: 3mm; /* This creates the 3mm white border on all 4 sides */
+}
 
-/* Text & Highlight Layers */
+/* Text & Highlight Layers (Aligned to the canvas margin) */
 #text-layer, #highlight-layer {
     position: absolute; 
-    top: 3mm; /* Offsets layers to sit exactly on the canvas */
-    left: 3mm; 
+    top: 3mm; /* Matches the canvas margin */
+    left: 3mm; /* Matches the canvas margin */
     overflow: hidden; 
     line-height: 1.0;
 }
