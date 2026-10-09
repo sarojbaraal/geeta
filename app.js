@@ -1,4 +1,3 @@
-// Configure PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 // State
@@ -6,9 +5,12 @@ let pdfDoc = null;
 let pageNum = 1;
 let pageRendering = false;
 let pageNumPending = null;
-let scale = 1.5;
 let currentSelection = null;
 let autoscrollInterval = null;
+
+// Zoom State (1.0 = fit width, 1.5 = 150%, 2.0 = 200%)
+let zoomMultiplier = 1.0; 
+let baseScale = 1.0;
 
 // DOM Elements
 const canvas = document.getElementById('pdf-canvas');
@@ -21,7 +23,6 @@ const pageIndicator = document.getElementById('page-indicator');
 const toolbar = document.getElementById('highlight-toolbar');
 const autoscrollBtn = document.getElementById('autoscroll-btn');
 
-// Initialize
 async function init() {
     const loadingTask = pdfjsLib.getDocument('book.pdf');
     pdfDoc = await loadingTask.promise;
@@ -32,7 +33,6 @@ async function init() {
     setupEventListeners();
 }
 
-// Render Page
 function renderPage(num) {
     pageRendering = true;
     pageIndicator.textContent = `Page ${num} / ${pdfDoc.numPages}`;
@@ -40,22 +40,46 @@ function renderPage(num) {
 
     pdfDoc.getPage(num).then(async (page) => {
         const viewport = page.getViewport({ scale: 1 });
+        
+        // Calculate base scale to fit screen width
         const containerWidth = viewerContainer.clientWidth - 20; 
-        scale = containerWidth / viewport.width;
-        const scaledViewport = page.getViewport({ scale: scale });
+        baseScale = containerWidth / viewport.width;
+        
+        // Final scale includes zoom multiplier
+        const finalScale = baseScale * zoomMultiplier;
+        const scaledViewport = page.getViewport({ scale: finalScale });
 
-        pageWrapper.style.width = scaledViewport.width + 'px';
-        pageWrapper.style.height = scaledViewport.height + 'px';
-        canvas.height = scaledViewport.height;
-        canvas.width = scaledViewport.width;
+        // --- HIGH DPI (RETINA) FIX ---
+        // Get device pixel ratio (usually 2 or 3 on mobile phones)
+        const outputScale = Math.min(window.devicePixelRatio || 1, 2); // Cap at 2 to save memory
 
-        textLayerDiv.style.width = scaledViewport.width + 'px';
-        textLayerDiv.style.height = scaledViewport.height + 'px';
-        highlightLayerDiv.style.width = scaledViewport.width + 'px';
-        highlightLayerDiv.style.height = scaledViewport.height + 'px';
+        // Set physical canvas size (High Resolution)
+        canvas.width = Math.floor(scaledViewport.width * outputScale);
+        canvas.height = Math.floor(scaledViewport.height * outputScale);
 
-        const renderContext = { canvasContext: ctx, viewport: scaledViewport };
+        // Set CSS canvas size (Logical Resolution - matches screen)
+        canvas.style.width = Math.floor(scaledViewport.width) + 'px';
+        canvas.style.height = Math.floor(scaledViewport.height) + 'px';
+        
+        // Set wrapper size to match CSS size
+        pageWrapper.style.width = Math.floor(scaledViewport.width) + 'px';
+        pageWrapper.style.height = Math.floor(scaledViewport.height) + 'px';
+
+        // Scale the drawing context
+        const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
+        const renderContext = {
+            canvasContext: ctx,
+            viewport: scaledViewport,
+            transform: transform
+        };
+        
         const renderTask = page.render(renderContext);
+
+        // Text Layer must match the CSS size, NOT the physical pixel size
+        textLayerDiv.style.width = Math.floor(scaledViewport.width) + 'px';
+        textLayerDiv.style.height = Math.floor(scaledViewport.height) + 'px';
+        highlightLayerDiv.style.width = Math.floor(scaledViewport.width) + 'px';
+        highlightLayerDiv.style.height = Math.floor(scaledViewport.height) + 'px';
 
         const textContent = await page.getTextContent();
         textLayerDiv.innerHTML = ''; 
@@ -87,17 +111,37 @@ function queueRenderPage(num) {
     }
 }
 
-// --- EVENT LISTENERS ---
 function setupEventListeners() {
+    // Page Jump
     document.getElementById('page-jump').onchange = (e) => {
         const val = parseInt(e.target.value);
         if (val >= 1 && val <= pdfDoc.numPages) { 
             pageNum = val; 
             queueRenderPage(pageNum); 
             viewerContainer.scrollTop = 0;
+            viewerContainer.scrollLeft = 0;
         }
     };
 
+    // Zoom Controls
+    document.getElementById('zoom-in').onclick = () => {
+        if (zoomMultiplier < 3.0) { // Max 300% zoom
+            zoomMultiplier += 0.5;
+            queueRenderPage(pageNum);
+            viewerContainer.scrollTop = 0;
+            viewerContainer.scrollLeft = 0;
+        }
+    };
+    document.getElementById('zoom-out').onclick = () => {
+        if (zoomMultiplier > 1.0) { // Min 100% (fit width)
+            zoomMultiplier -= 0.5;
+            queueRenderPage(pageNum);
+            viewerContainer.scrollTop = 0;
+            viewerContainer.scrollLeft = 0;
+        }
+    };
+
+    // Sidebar
     document.getElementById('menu-btn').onclick = () => document.getElementById('sidebar').classList.add('open');
     document.getElementById('close-sidebar').onclick = () => document.getElementById('sidebar').classList.remove('open');
 
@@ -116,7 +160,8 @@ function setupEventListeners() {
         const diffX = touchStartX - touchEndX;
         const diffY = touchStartY - touchEndY;
 
-        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+        // Only swipe pages if zoomed out (fit to width)
+        if (zoomMultiplier === 1.0 && Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
             if (diffX > 0 && pageNum < pdfDoc.numPages) {
                 pageNum++;
                 queueRenderPage(pageNum);
@@ -280,16 +325,15 @@ async function loadChapters() {
             pageNum = ch.page;
             queueRenderPage(pageNum);
             viewerContainer.scrollTop = 0;
+            viewerContainer.scrollLeft = 0;
             document.getElementById('sidebar').classList.remove('open');
         };
         list.appendChild(li);
     });
 }
 
-// Start
 init();
 
-// --- REGISTER SERVICE WORKER (Required for PWA Install) ---
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
