@@ -67,51 +67,29 @@ body {
     position: relative; 
     background: #525659;
     padding: 20px 0;
+    text-align: center; /* Centers the inline-block wrapper */
 }
 
-/* Page Wrapper (FIXED BORDER) */
+/* Page Wrapper (THE ULTIMATE FIX FOR BORDERS) */
 #page-wrapper {
-    margin: 0 auto; 
+    display: inline-block; /* Shrink-wraps the canvas + padding perfectly */
     position: relative;
     box-shadow: 0 0 15px rgba(0,0,0,0.4);
     transition: opacity 0.2s ease;
     padding: 3mm; /* The 3mm white border */
     background: white;
-    box-sizing: content-box; /* CRITICAL FIX: Forces padding to be added OUTSIDE the JS-calculated width/height */
+    text-align: left; /* Reset text alignment for content inside */
 }
 #page-wrapper.turning { opacity: 0.6; }
 
 #pdf-canvas { display: block; }
 
-/* Text & Highlight Layers (FIXED ALIGNMENT) */
+/* Text & Highlight Layers */
 #text-layer, #highlight-layer {
     position: absolute; 
-    top: 3mm; /* CRITICAL FIX: Offsets layers to sit exactly on top of the canvas, inside the padding */
+    top: 3mm; /* Offsets layers to sit exactly on the canvas */
     left: 3mm; 
     overflow: hidden; 
     line-height: 1.0;
 }
-#text-layer { z-index: 2; opacity: 0; }
-#highlight-layer { z-index: 3; pointer-events: none; }
-
-#text-layer > span {
-    color: transparent; position: absolute; white-space: pre; cursor: text;
-    transform-origin: 0% 0%;
-}
-#text-layer > span::selection { background: rgba(59, 130, 246, 0.4); }
-
-.highlight-box {
-    position: absolute; mix-blend-mode: multiply; pointer-events: auto; cursor: pointer;
-    border-radius: 2px; opacity: 0.4;
-}
-.highlight-box.yellow { background: yellow; }
-.highlight-box.green { background: lime; }
-.highlight-box.blue { background: cyan; }
-
-#highlight-toolbar {
-    position: fixed; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    display: flex; z-index: 50; padding: 5px;
-}
-#highlight-toolbar.hidden { display: none; }
-.hl-btn { padding: 8px 12px; border: none; background: none; cursor: pointer; font-size: 14px; border-radius: 4px; }
-.hl-btn:active { background: #e5e7eb; }
+#text-layer { z-index: 2; opacity: 0;
