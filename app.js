@@ -57,19 +57,20 @@ function renderPage(num) {
 
         const outputScale = Math.min(window.devicePixelRatio || 1, 2);
 
+        // Set physical and CSS canvas size
         canvas.width = Math.floor(scaledViewport.width * outputScale);
         canvas.height = Math.floor(scaledViewport.height * outputScale);
         canvas.style.width = Math.floor(scaledViewport.width) + 'px';
         canvas.style.height = Math.floor(scaledViewport.height) + 'px';
         
-        // Because of content-box, this sets the inner size, and padding adds to the outside
-        pageWrapper.style.width = Math.floor(scaledViewport.width) + 'px';
-        pageWrapper.style.height = Math.floor(scaledViewport.height) + 'px';
+        // REMOVED: pageWrapper.style.width and height. 
+        // The CSS 'display: inline-block' now automatically shrink-wraps the canvas + 3mm padding perfectly.
 
         const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
         const renderContext = { canvasContext: ctx, viewport: scaledViewport, transform: transform };
         const renderTask = page.render(renderContext);
 
+        // Set text/highlight layer sizes to match the canvas exactly
         textLayerDiv.style.width = Math.floor(scaledViewport.width) + 'px';
         textLayerDiv.style.height = Math.floor(scaledViewport.height) + 'px';
         highlightLayerDiv.style.width = Math.floor(scaledViewport.width) + 'px';
@@ -247,7 +248,7 @@ async function saveHighlight(color, comment = '') {
     const rects = range.getClientRects();
     const text = currentSelection.toString().trim();
     
-    // FIX: Use canvas bounding rect instead of wrapper to perfectly align with the 3mm offset
+    // Calculate coordinates relative to the canvas
     const canvasRect = canvas.getBoundingClientRect();
     const boxes = [];
     
