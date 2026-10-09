@@ -15,17 +15,35 @@ body {
     width: 100vw;
 }
 
-/* Sidebar */
-.sidebar {
-    position: fixed; top: 0; left: -280px; width: 280px; height: 100%;
-    background: white; z-index: 100; transition: left 0.3s ease;
+/* Sidebars */
+.sidebar, #edge-chapter-panel {
+    position: fixed; top: 0; height: 100%;
+    background: white; z-index: 100; 
     box-shadow: 2px 0 10px rgba(0,0,0,0.1); overflow-y: auto;
 }
+.sidebar { left: -280px; width: 280px; transition: left 0.3s ease; }
 .sidebar.open { left: 0; }
+
+/* Right Edge Panel */
+#right-edge-trigger {
+    position: fixed; top: 0; right: 0; width: 25px; height: 100%; z-index: 40;
+}
+#edge-chapter-panel {
+    right: -260px; width: 250px; z-index: 105; transition: right 0.3s ease;
+    box-shadow: -2px 0 10px rgba(0,0,0,0.2);
+}
+#edge-chapter-panel.open { right: 0; }
+.edge-panel-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 15px; border-bottom: 1px solid #e5e7eb; font-weight: bold;
+}
+
 .sidebar-header { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #e5e7eb; }
-#chapter-list { list-style: none; }
-#chapter-list li { padding: 15px; border-bottom: 1px solid #f3f4f6; cursor: pointer; }
-#chapter-list li:active { background: #e5e7eb; }
+#chapter-list, #edge-chapter-list { list-style: none; }
+#chapter-list li, #edge-chapter-list li { 
+    padding: 15px; border-bottom: 1px solid #f3f4f6; cursor: pointer; 
+}
+#chapter-list li:active, #edge-chapter-list li:active { background: #e5e7eb; }
 
 #main-container { display: flex; flex-direction: column; height: 100vh; }
 
@@ -42,22 +60,23 @@ body {
 .zoom-btn:active { background: #d1d5db; }
 #autoscroll-btn.active { background: #e5e7eb; border-radius: 50%; }
 
-/* Viewer (Allows vertical and horizontal scroll for zooming) */
+/* Viewer (Fixed horizontal scroll bug) */
 #viewer-container {
     flex: 1; 
-    overflow: auto; /* Changed to auto to allow horizontal scroll when zoomed */
+    overflow: auto; 
     position: relative; 
     background: #525659;
-    display: flex; 
-    justify-content: center; 
-    align-items: flex-start; 
     padding: 20px 0;
 }
 
+/* Page Wrapper (3mm white border & centering fix) */
 #page-wrapper {
+    margin: 0 auto; /* Centers when small, allows scroll when zoomed */
     position: relative;
     box-shadow: 0 0 15px rgba(0,0,0,0.4);
     transition: opacity 0.2s ease;
+    padding: 3mm; /* 3mm white border around the page */
+    background: white;
 }
 #page-wrapper.turning { opacity: 0.6; }
 
@@ -90,4 +109,5 @@ body {
     display: flex; z-index: 50; padding: 5px;
 }
 #highlight-toolbar.hidden { display: none; }
-.hl-btn {
+.hl-btn { padding: 8px 12px; border: none; background: none; cursor: pointer; font-size: 14px; border-radius: 4px; }
+.hl-btn:active { background: #e5e7eb; }
